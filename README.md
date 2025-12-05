@@ -127,100 +127,88 @@ Asterisk PBX統合型の企業向けコミュニケーションプラットフ�
 
 ## 🚀 セットアップ手順（Windows 11）
 
-### クイックスタート
+### クイックスタート（一括起動）
 
-#### エコーバックモードテスト（DB不要 - 最速起動）
+**PowerShellを管理者として実行**してください。
 
-PostgreSQL無しで音声処理をテストできます：
+```powershell
+# PowerShellスクリプト実行ポリシー設定（初回のみ）
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
-```bash
-# Linux/WSL
-./scripts/start-dbless-mode.sh
+# 全サービス一括起動（4つのPowerShellウィンドウで起動）
+.\scripts\start-services.ps1
 
-# Windows PowerShell
-.\scripts\start-dbless-mode.ps1
+# 停止
+.\scripts\stop-services.ps1
+
+# 再起動
+.\scripts\restart-services.ps1
 ```
 
-**このスクリプトが自動で実行すること:**
-- PostgreSQLを停止（起動している場合）
-- Python Backend (Port 8000) を起動
-- Node.js Backend (Port 3001) を起動
-- Azure Speech設定を環境変数から読み込み
+**起動されるサービス:**
+- Python Backend (Port 8000) - 依存関係インストール + DBマイグレーション + uvicorn
+- Celery Worker - バックグラウンドタスク処理（geventプール）
+- Node.js Backend (Port 3001) - Asterisk ARI連携
+- Next.js UI (Port 3000) - フロントエンド
 
 詳細は [QUICKSTART_WSL.md](docs/QUICKSTART_WSL.md) を参照。
 
 ---
 
-#### フルシステム起動（通話履歴・顧客管理を含む）
+#### 手動セットアップ（フルシステム起動）
 
-**PowerShellを管理者として実行**してください。
-
-##### 1. データベース初期化（1コマンド）
+##### 1. データベース初期化
 
 ```powershell
 # PostgreSQLサービス確認・起動
 Get-Service postgresql*
 Start-Service postgresql-x64-15  # 停止している場合
 
-# データベース初期化（全自動）
-.\initialize-database.ps1
-
-# または強制再作成
-.\initialize-database.ps1 -Force
-```
-
-**このスクリプトが自動で実行すること:**
-- データベース存在チェック（既存ならスキップ）
-- ユーザー作成チェック（既存ならスキップ）
-- 全マイグレーション実行（実行済みならスキップ）
-- テーブル作成確認
-- インデックス確認
-- 接続テスト
-
-**手動で実行する場合:**
-```powershell
-# PostgreSQLに接続
+# PostgreSQLに接続してデータベース作成
 psql -U postgres
 
-# データベース作成
+# SQL実行
 CREATE DATABASE voiceai;
 CREATE USER voiceai WITH PASSWORD 'dev_password';
 GRANT ALL PRIVILEGES ON DATABASE voiceai TO voiceai;
 \q
 
-# Alembicマイグレーション実行（推奨）
+# Alembicマイグレーション実行
 .\venv\Scripts\Activate.ps1
 cd DENCO_manager
 alembic upgrade head
 cd ..
 ```
 
-#### 2. Pythonバックエンド起動
+##### 2. Pythonバックエンド起動
 
 ```powershell
-# 仮想環境作成
+# 仮想環境作成（初回のみ）
 python -m venv venv
 
 # アクティベート
 .\venv\Scripts\Activate.ps1
 
 # 依存パッケージインストール
-pip install -r requirements.txt
+pip install -r DENCO_manager\requirements.txt
 
-# 環境変数設定（.envファイル作成）
+# 環境変数設定（.envファイル作成 - DENCO_managerディレクトリに配置）
 @"
 POSTGRES_HOST=localhost
 POSTGRES_USER=voiceai
 POSTGRES_PASSWORD=dev_password
 POSTGRES_DB=voiceai
 BACKEND_AUTH_TOKEN=dev-token-123
-"@ | Out-File -FilePath .env -Encoding UTF8
+AZURE_SPEECH_KEY=your-azure-key
+AZURE_SPEECH_REGION=japaneast
+"@ | Out-File -FilePath DENCO_manager\.env -Encoding UTF8
 
-# 起動
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# PYTHONPATHを設定して起動
+$env:PYTHONPATH = (Get-Location).Path
+python -m uvicorn DENCO_manager.app.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
 ```
 
-#### 3. Node.jsバックエンド起動（新しいPowerShell）
+##### 3. Node.jsバックエンド起動（新しいPowerShell）
 
 ```powershell
 cd Asterisk_gateway
@@ -228,18 +216,24 @@ cd Asterisk_gateway
 # 依存パッケージインストール
 npm install
 
-# 環境変数設定
-Copy-Item env.template .env
-
-# .envを編集（AsteriskサーバーのIPを設定）
-notepad .env
-# ASTERISK_HOST=192.168.1.100 ← AsteriskサーバーのIP
+# 環境変数設定（.env.exampleがある場合はコピー）
+# .envを作成・編集（AsteriskサーバーのIPを設定）
+@"
+ASTERISK_HOST=192.168.1.100
+ASTERISK_ARI_PORT=8088
+ASTERISK_ARI_USERNAME=ariuser
+ASTERISK_ARI_PASSWORD=your-ari-password
+ASTERISK_APP_NAME=denco_voiceai
+PYTHON_BACKEND_URL=http://localhost:8000
+PYTHON_BACKEND_WS_URL=ws://localhost:8000
+BACKEND_AUTH_TOKEN=dev-token-123
+"@ | Out-File -FilePath .env -Encoding UTF8
 
 # 起動
 npm run dev
 ```
 
-#### 4. フロントエンド起動（新しいPowerShell）
+##### 4. フロントエンド起動（新しいPowerShell）
 
 ```powershell
 cd DENCO_UI
@@ -255,21 +249,6 @@ NEXT_PUBLIC_NODE_BACKEND_URL=http://localhost:3001
 
 # 起動
 npm run dev
-```
-
----
-
-### 一括起動（PowerShell版）
-
-```powershell
-# PowerShellスクリプト実行ポリシー設定（初回のみ）
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-# 全サービス一括起動
-.\start-all-services.ps1
-
-# 停止
-.\stop-all-services.ps1
 ```
 
 **アクセス:**
@@ -294,27 +273,24 @@ Get-Service postgresql*
 # サービス起動（停止している場合）
 Start-Service postgresql-x64-15
 
-# データベース初期化（1コマンドで完了）
-.\initialize-database.ps1
+# データベース作成（psqlで実行）
+$env:PGPASSWORD = "postgres_password"
+psql -U postgres -c "CREATE DATABASE voiceai;"
+psql -U postgres -c "CREATE USER voiceai WITH PASSWORD 'dev_password';"
+psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE voiceai TO voiceai;"
+
+# Alembicマイグレーション実行
+.\venv\Scripts\Activate.ps1
+cd DENCO_manager
+alembic upgrade head
+cd ..
 ```
 
-**このスクリプトが自動実行する内容:**
-```
-✅ データベース存在チェック → 必要なら作成
-✅ ユーザー存在チェック → 必要なら作成
-✅ 権限付与
-✅ Alembicマイグレーション実行
-   - 20251016_1400_initial_schema.py (テーブル作成)
-   - 20251016_1500_add_fax_documents.py (FAXテーブル追加)
-✅ テーブル作成確認
-✅ インデックス確認
-✅ 接続テスト
-```
-
-**確認コマンド:**
+**マイグレーション状態確認:**
 ```powershell
-# データベース状態確認
-.\check-database.ps1
+cd DENCO_manager
+alembic current    # 現在のバージョン
+alembic history    # 履歴
 ```
 
 #### 2. Asterisk PBXサーバーのセットアップ（Debian + FreePBX）
@@ -382,10 +358,10 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 
 # 依存パッケージインストール
-pip install -r requirements.txt
+pip install -r DENCO_manager\requirements.txt
 
-# 環境変数設定
-notepad .env
+# 環境変数設定（DENCO_manager/.envを作成）
+notepad DENCO_manager\.env
 ```
 
 ```env
@@ -408,8 +384,9 @@ BACKEND_AUTH_TOKEN=generate-secure-token-here
 ```
 
 ```powershell
-# 起動
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# 起動（PYTHONPATHを設定）
+$env:PYTHONPATH = (Get-Location).Path
+python -m uvicorn DENCO_manager.app.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
 ```
 
 #### 4. Node.jsバックエンドのセットアップ（Windows 11）
@@ -450,8 +427,7 @@ npm run dev
 
 ```powershell
 # 新しいPowerShellウィンドウ
-# プロジェクトルートに戻る
-cd ..
+cd C:\Users\user\Desktop\DENCO_demo\DENCO_UI
 
 # 依存パッケージインストール
 npm install
@@ -507,10 +483,12 @@ npm run dev
 **通話制御:**
 ```
 GET  /health                        # ヘルスチェック
-GET  /api/calls/active              # アクティブな通話一覧
-POST /api/calls/originate           # 発信（アウトバウンド）
-POST /api/calls/:id/disconnect      # 通話切断
-GET  /api/asterisk/status           # Asterisk接続状態
+GET  /api/calls                     # アクティブな通話一覧
+POST /api/calls                     # 新規通話作成
+GET  /api/calls/:callId             # 通話詳細取得
+POST /api/calls/:callId/playback    # フィラー音声再生
+POST /api/calls/:callId/register    # 通話登録（RTP用）
+POST /api/calls/:callId/end         # 通話終了
 ```
 
 **WebSocket:**
@@ -522,6 +500,15 @@ ws://localhost:3001/ws/monitor      # モニタリング
 ---
 
 ### 🐍 Python Backend API (Port 8000)
+
+**認証:**
+```
+POST /api/auth/login                # ログイン
+POST /api/auth/logout               # ログアウト
+POST /api/auth/logout-all           # 全セッションログアウト
+POST /api/auth/refresh              # トークンリフレッシュ
+GET  /api/auth/me                   # 現在のユーザー情報
+```
 
 **通話管理:**
 ```
@@ -556,13 +543,52 @@ POST   /api/knowledge/inquiries     # お問い合わせ作成
 GET    /api/knowledge/categories    # カテゴリー一覧
 ```
 
-**AI架電:**
+**FAX管理:**
 ```
-GET    /api/campaigns/templates     # テンプレート一覧
-POST   /api/campaigns/templates     # テンプレート作成
-GET    /api/campaigns               # キャンペーン一覧
-POST   /api/campaigns               # キャンペーン作成
-POST   /api/campaigns/:id/start     # キャンペーン開始
+GET    /api/fax                     # FAX文書一覧
+GET    /api/fax/:fax_id             # FAX文書詳細
+GET    /api/fax/:fax_id/pdf         # FAX PDFダウンロード
+GET    /api/fax/from-numbers        # 送信元番号一覧
+POST   /api/fax/send                # FAX送信
+POST   /api/fax/inbound             # 受信FAX登録
+GET    /api/fax/jobs                # FAXジョブ一覧
+GET    /api/fax/jobs/:job_id        # FAXジョブ詳細
+POST   /api/fax/jobs/:job_id/retry  # FAXジョブ再送
+POST   /api/fax/jobs/:job_id/cancel # FAXジョブキャンセル
+```
+
+**スタッフ管理:**
+```
+GET    /api/staff                   # スタッフ一覧
+GET    /api/staff/:staff_id         # スタッフ詳細
+POST   /api/staff                   # スタッフ作成
+PUT    /api/staff/:staff_id         # スタッフ更新
+DELETE /api/staff/:staff_id         # スタッフ削除
+```
+
+**部署管理:**
+```
+GET    /api/departments             # 部署一覧
+GET    /api/departments/all         # 全部署一覧（システム用）
+GET    /api/departments/:id         # 部署詳細
+POST   /api/departments             # 部署作成
+PUT    /api/departments/:id         # 部署更新
+DELETE /api/departments/:id         # 部署削除
+```
+
+**電話番号管理:**
+```
+GET    /api/phone-numbers           # 電話番号一覧
+GET    /api/phone-numbers/:id       # 電話番号詳細
+POST   /api/phone-numbers           # 電話番号登録
+PUT    /api/phone-numbers/:id       # 電話番号更新
+DELETE /api/phone-numbers/:id       # 電話番号削除
+```
+
+**設定管理:**
+```
+GET    /api/settings                # 設定取得
+PUT    /api/settings                # 設定更新
 ```
 
 **タグ・テナント:**
@@ -575,10 +601,10 @@ POST   /api/tenants                 # テナント作成
 
 **WebSocket:**
 ```
-ws://localhost:8000/ws/call/:id     # 音声ストリーム処理
+ws://localhost:8000/api/ws/call/:id # 音声ストリーム処理
 ```
 
-**詳細仕様**: [`PYTHON_BACKEND_API.md`](PYTHON_BACKEND_API.md)
+**詳細仕様**: [`docs/PYTHON_BACKEND_API.md`](docs/PYTHON_BACKEND_API.md)
 
 ## 🔒 セキュリティ
 
