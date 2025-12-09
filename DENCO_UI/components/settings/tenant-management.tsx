@@ -36,12 +36,8 @@ export default function TenantManagement({ onTenantsUpdate, onDepartmentsUpdate 
   const [tenants, setTenants] = useState<TenantEntry[]>(initialTenants);
   const [departments, setDepartments] = useState<Department[]>(initialDepartments);
 
-  // Search and filter states
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [deptSearchTerm, setDeptSearchTerm] = useState("");
+  // Filter state for departments
   const [deptTenantFilter, setDeptTenantFilter] = useState<string>("all");
-  const [deptStatusFilter, setDeptStatusFilter] = useState<string>("all");
 
   // Dialog states
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -59,9 +55,10 @@ export default function TenantManagement({ onTenantsUpdate, onDepartmentsUpdate 
   });
   const [deptFormData, setDeptFormData] = useState<DepartmentFormData>({
     name: "",
-    description: "",
     tenantId: "",
-    status: "active"
+    status: "active",
+    phoneNumber: "",
+    faxNumber: "",
   });
 
   // Form reset functions
@@ -77,9 +74,10 @@ export default function TenantManagement({ onTenantsUpdate, onDepartmentsUpdate 
   const resetDeptForm = () => {
     setDeptFormData({
       name: "",
-      description: "",
       tenantId: "",
-      status: "active"
+      status: "active",
+      phoneNumber: "",
+      faxNumber: "",
     });
     setEditingDepartment(null);
   };
@@ -180,10 +178,11 @@ export default function TenantManagement({ onTenantsUpdate, onDepartmentsUpdate 
     const newDepartment: Department = {
       id: `dept-${Date.now()}`,
       name: deptFormData.name.trim(),
-      description: deptFormData.description.trim() || undefined,
       tenantId: deptFormData.tenantId,
       status: deptFormData.status,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      phoneNumber: deptFormData.phoneNumber.trim() || undefined,
+      faxNumber: deptFormData.faxNumber.trim() || undefined,
     };
 
     const updatedDepartments = [...departments, newDepartment];
@@ -198,9 +197,10 @@ export default function TenantManagement({ onTenantsUpdate, onDepartmentsUpdate 
     setEditingDepartment(department);
     setDeptFormData({
       name: department.name,
-      description: department.description || "",
       tenantId: department.tenantId,
-      status: department.status
+      status: department.status,
+      phoneNumber: department.phoneNumber || "",
+      faxNumber: department.faxNumber || "",
     });
     setIsEditDeptDialogOpen(true);
   };
@@ -227,9 +227,10 @@ export default function TenantManagement({ onTenantsUpdate, onDepartmentsUpdate 
         ? {
             ...dept,
             name: deptFormData.name.trim(),
-            description: deptFormData.description.trim() || undefined,
             tenantId: deptFormData.tenantId,
-            status: deptFormData.status
+            status: deptFormData.status,
+            phoneNumber: deptFormData.phoneNumber.trim() || undefined,
+            faxNumber: deptFormData.faxNumber.trim() || undefined,
           }
         : dept
     );
@@ -250,31 +251,21 @@ export default function TenantManagement({ onTenantsUpdate, onDepartmentsUpdate 
 
   return (
     <div className="space-y-6">
-      {/* テナントリスト */}
+      {/* テナント一覧 */}
       <TenantList
         tenants={tenants}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
         onEditClick={handleEditTenant}
-        onDeleteClick={handleDeleteTenant}
-        onAddClick={() => setIsAddDialogOpen(true)}
       />
 
       {/* 部署リスト */}
       <DepartmentList
         departments={departments}
         tenants={tenants}
-        searchTerm={deptSearchTerm}
-        onSearchChange={setDeptSearchTerm}
         tenantFilter={deptTenantFilter}
         onTenantFilterChange={setDeptTenantFilter}
-        statusFilter={deptStatusFilter}
-        onStatusFilterChange={setDeptStatusFilter}
+        onAddClick={() => setIsAddDeptDialogOpen(true)}
         onEditClick={handleEditDepartment}
         onDeleteClick={handleDeleteDepartment}
-        onAddClick={() => setIsAddDeptDialogOpen(true)}
       />
 
       {/* テナント追加ダイアログ */}
@@ -324,7 +315,12 @@ export default function TenantManagement({ onTenantsUpdate, onDepartmentsUpdate 
               新しい部署を登録します
             </DialogDescription>
           </DialogHeader>
-          <DepartmentForm formData={deptFormData} onChange={setDeptFormData} tenants={tenants} />
+          <DepartmentForm 
+            formData={deptFormData} 
+            onChange={setDeptFormData} 
+            tenants={tenants}
+            departments={departments}
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDeptDialogOpen(false)}>
               キャンセル
@@ -343,7 +339,13 @@ export default function TenantManagement({ onTenantsUpdate, onDepartmentsUpdate 
               部署情報を編集します
             </DialogDescription>
           </DialogHeader>
-          <DepartmentForm formData={deptFormData} onChange={setDeptFormData} tenants={tenants} />
+          <DepartmentForm 
+            formData={deptFormData} 
+            onChange={setDeptFormData} 
+            tenants={tenants}
+            departments={departments}
+            editingDepartmentId={editingDepartment?.id}
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDeptDialogOpen(false)}>
               キャンセル

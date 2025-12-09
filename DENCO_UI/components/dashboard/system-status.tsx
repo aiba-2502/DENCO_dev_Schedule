@@ -7,11 +7,11 @@ import { Activity, Database, Server, Phone } from "lucide-react";
 import { api } from "@/lib/api-client";
 
 interface SystemStatusProps {
-  activeCalls: number;
-  totalCalls: number;
+  activeCalls?: number;
+  totalCalls?: number;
 }
 
-export default function SystemStatus({ activeCalls, totalCalls }: SystemStatusProps) {
+export default function SystemStatus({ activeCalls = 0, totalCalls = 0 }: SystemStatusProps) {
   const [pythonHealth, setPythonHealth] = useState<any>(null);
   const [nodeHealth, setNodeHealth] = useState<any>(null);
   const [asteriskConnected, setAsteriskConnected] = useState(false);

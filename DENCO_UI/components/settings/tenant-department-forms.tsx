@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { TenantFormData, DepartmentFormData, TenantEntry } from "./tenant-types";
+import type { TenantFormData, DepartmentFormData, TenantEntry, Department } from "./tenant-types";
 
 /**
  * テナントフォームのプロパティ
@@ -89,12 +89,71 @@ interface DepartmentFormProps {
   onChange: (formData: DepartmentFormData) => void;
   /** 利用可能なテナントリスト */
   tenants: TenantEntry[];
+  /** 既存の部署リスト（番号の割り当て状況確認用） */
+  departments: Department[];
+  /** 編集中の部署ID（編集時は自分の番号も選択可能にするため） */
+  editingDepartmentId?: string;
 }
 
 /**
  * 部署フォームコンポーネント
+ * 
+ * 【バックエンド開発者へ】
+ * テナント選択時に、そのテナントの電話番号・FAX番号リストを取得し、
+ * 他の部署に割り当てられていない番号のみ選択可能として表示します。
+ * API: GET /api/tenants/{tenantId}/available-numbers
+ * Response: { phoneNumbers: string[], faxNumbers: string[] }
  */
-export function DepartmentForm({ formData, onChange, tenants }: DepartmentFormProps) {
+export function DepartmentForm({ 
+  formData, 
+  onChange, 
+  tenants, 
+  departments,
+  editingDepartmentId 
+}: DepartmentFormProps) {
+  // 選択されたテナントを取得
+  const selectedTenant = useMemo(() => {
+    return tenants.find(t => t.id === formData.tenantId);
+  }, [tenants, formData.tenantId]);
+
+  // 利用可能な電話番号（未割り当て or 編集中の部署に割り当て済み）
+  const availablePhoneNumbers = useMemo(() => {
+    if (!selectedTenant?.phoneNumbers) return [];
+    
+    // 同じテナントの他の部署で使われている電話番号を取得
+    const usedPhoneNumbers = departments
+      .filter(d => d.tenantId === formData.tenantId && d.id !== editingDepartmentId)
+      .map(d => d.phoneNumber)
+      .filter(Boolean);
+    
+    // 未使用の番号のみ返す
+    return selectedTenant.phoneNumbers.filter(num => !usedPhoneNumbers.includes(num));
+  }, [selectedTenant, departments, formData.tenantId, editingDepartmentId]);
+
+  // 利用可能なFAX番号（未割り当て or 編集中の部署に割り当て済み）
+  const availableFaxNumbers = useMemo(() => {
+    if (!selectedTenant?.faxNumbers) return [];
+    
+    // 同じテナントの他の部署で使われているFAX番号を取得
+    const usedFaxNumbers = departments
+      .filter(d => d.tenantId === formData.tenantId && d.id !== editingDepartmentId)
+      .map(d => d.faxNumber)
+      .filter(Boolean);
+    
+    // 未使用の番号のみ返す
+    return selectedTenant.faxNumbers.filter(num => !usedFaxNumbers.includes(num));
+  }, [selectedTenant, departments, formData.tenantId, editingDepartmentId]);
+
+  // テナント変更時に番号をリセット
+  const handleTenantChange = (tenantId: string) => {
+    onChange({ 
+      ...formData, 
+      tenantId, 
+      phoneNumber: "", 
+      faxNumber: "" 
+    });
+  };
+
   return (
     <div className="grid gap-4 py-4">
       <div className="space-y-2">
@@ -111,7 +170,7 @@ export function DepartmentForm({ formData, onChange, tenants }: DepartmentFormPr
         <Label htmlFor="dept-tenant">テナント *</Label>
         <Select
           value={formData.tenantId}
-          onValueChange={(value) => onChange({ ...formData, tenantId: value })}
+          onValueChange={handleTenantChange}
         >
           <SelectTrigger>
             <SelectValue placeholder="テナントを選択" />
@@ -126,15 +185,60 @@ export function DepartmentForm({ formData, onChange, tenants }: DepartmentFormPr
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="dept-description">説明</Label>
-        <Input
-          id="dept-description"
-          value={formData.description}
-          onChange={(e) => onChange({ ...formData, description: e.target.value })}
-          placeholder="部署の説明（任意）"
-        />
-      </div>
+      {/* テナント選択後に番号選択を表示 */}
+      {formData.tenantId && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="dept-phone">電話番号</Label>
+            <Select
+              value={formData.phoneNumber}
+              onValueChange={(value) => onChange({ ...formData, phoneNumber: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="電話番号を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">未割り当て</SelectItem>
+                {availablePhoneNumbers.map(num => (
+                  <SelectItem key={num} value={num}>
+                    {num}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {availablePhoneNumbers.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                利用可能な電話番号がありません
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="dept-fax">FAX番号</Label>
+            <Select
+              value={formData.faxNumber}
+              onValueChange={(value) => onChange({ ...formData, faxNumber: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="FAX番号を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">未割り当て</SelectItem>
+                {availableFaxNumbers.map(num => (
+                  <SelectItem key={num} value={num}>
+                    {num}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {availableFaxNumbers.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                利用可能なFAX番号がありません
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="dept-status">状態</Label>

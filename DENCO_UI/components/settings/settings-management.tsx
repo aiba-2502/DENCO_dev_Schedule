@@ -29,11 +29,12 @@ import { Save, TestTube, CheckCircle, XCircle, AlertCircle } from "lucide-react"
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import AzureSpeechSettings from "./azure-speech-settings";
-import AsteriskSettings from "./asterisk-settings";
 import DifySettings from "./dify-settings";
 import CustomVocabularySettings from "./custom-vocabulary-settings";
 import ResponseSettings from "./response-settings";
 import NumberManagement from "./number-management";
+import ExternalApiSettings from "./external-api-settings";
+import SecuritySettings from "./security-settings";
 
 interface Department {
   id: string;
@@ -93,15 +94,6 @@ const voiceOptions = [
   { value: "ja-JP-ShioriNeural", label: "Shiori (女性・子供)" },
 ];
 
-// Asterisk codec options
-const codecOptions = [
-  { value: "ulaw", label: "G.711 μ-law (ulaw)" },
-  { value: "alaw", label: "G.711 A-law (alaw)" },
-  { value: "g722", label: "G.722 (g722)" },
-  { value: "g729", label: "G.729 (g729)" },
-  { value: "gsm", label: "GSM (gsm)" },
-  { value: "opus", label: "Opus (opus)" },
-];
 
 export default function SettingsManagement() {
   const [availableDepartments, setAvailableDepartments] = useState<Department[]>([]);
@@ -116,30 +108,10 @@ export default function SettingsManagement() {
     
     // Dify Settings
     dify: {
-      difyApiKey: "",
-      difyEndpoint: "https://api.dify.ai/v1",
+      difyAgentApiKey: "",
+      difyAgentEndpoint: "https://api.dify.ai/v1",
       difyKnowledgeApiKey: "",
       difyKnowledgeEndpoint: "https://api.dify.ai/v1",
-      summaryPrompt: "",
-      openaiApiKey: "",
-    },
-    
-    // Asterisk PBX Settings
-    asterisk: {
-      host: "",
-      port: "5060",
-      username: "",
-      password: "",
-      realm: "",
-      transport: "udp",
-      codec: "ulaw",
-      dtmfMode: "rfc2833",
-      enableReinvite: true,
-      sessionTimers: "accept",
-      callLimit: "10",
-      context: "default",
-      qualify: "yes",
-      nat: "force_rport,comedia",
     },
     
     // Response Settings
@@ -162,9 +134,14 @@ export default function SettingsManagement() {
         audioFile: null,
         audioFileName: null,
       },
+      endCall: {
+        useAudio: false,
+        message: "お電話ありがとうございました。またのご連絡をお待ちしております。",
+        audioFile: null,
+        audioFileName: null,
+      },
       voice: "ja-JP-NanamiNeural",
       speechRate: 1.0,
-      volume: 75,
     },
     
   });
@@ -221,139 +198,145 @@ export default function SettingsManagement() {
         </Button>
       </div>
 
-      <Tabs defaultValue="speech" className="space-y-6">
+      <Tabs defaultValue="ai-call" className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="speech">音声認識・合成</TabsTrigger>
-          <TabsTrigger value="asterisk">Asterisk PBX</TabsTrigger>
-          <TabsTrigger value="dify">Dify設定</TabsTrigger>
-          <TabsTrigger value="response">応答設定</TabsTrigger>
-          <TabsTrigger value="numbers">番号管理</TabsTrigger>
+          <TabsTrigger value="ai-call">AI通話設定</TabsTrigger>
+          <TabsTrigger value="dify">AIエージェント設定</TabsTrigger>
+          <TabsTrigger value="external">外部サーバ・API</TabsTrigger>
+          <TabsTrigger value="security">セキュリティ</TabsTrigger>
+          <TabsTrigger value="numbers">部署・番号設定</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="speech">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Azure Speech Service設定</CardTitle>
-                  <CardDescription>
-                    音声認識と音声合成の設定を行います
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  {getTestIcon(testResults.azureSpeech)}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={testAzureSpeech}
-                    disabled={testResults.azureSpeech === "testing"}
-                    className="gap-1"
-                  >
-                    <TestTube className="h-4 w-4" />
-                    接続テスト
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="subscription-key">サブスクリプションキー *</Label>
-                  <Input
-                    id="subscription-key"
-                    type="password"
-                    value={settings.azureSpeech.azureSubscriptionKey}
-                    onChange={(e) => setSettings(prev => ({
-                      ...prev,
-                      azureSpeech: { ...prev.azureSpeech, azureSubscriptionKey: e.target.value }
-                    }))}
-                    placeholder="Azure Speech Serviceのサブスクリプションキー"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="region">リージョン *</Label>
-                  <Select
-                    value={settings.azureSpeech.azureRegion}
-                    onValueChange={(value) => setSettings(prev => ({
-                      ...prev,
-                      azureSpeech: { ...prev.azureSpeech, azureRegion: value }
-                    }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {azureRegions.map((region) => (
-                        <SelectItem key={region.value} value={region.value}>
-                          {region.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+        <TabsContent value="ai-call">
+          <Tabs defaultValue="stt" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="stt">音声認識（STT）</TabsTrigger>
+              <TabsTrigger value="tts">音声再生（TTS）</TabsTrigger>
+            </TabsList>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="language">音声認識言語</Label>
-                  <Select
-                    value={settings.azureSpeech.azureLanguage}
-                    onValueChange={(value) => setSettings(prev => ({
-                      ...prev,
-                      azureSpeech: { ...prev.azureSpeech, azureLanguage: value }
-                    }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ja-JP">日本語 (ja-JP)</SelectItem>
-                      <SelectItem value="en-US">英語 (en-US)</SelectItem>
-                      <SelectItem value="zh-CN">中国語 (zh-CN)</SelectItem>
-                      <SelectItem value="ko-KR">韓国語 (ko-KR)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="voice">音声合成ボイス</Label>
-                  <Select
-                    value={settings.azureSpeech.azureVoice}
-                    onValueChange={(value) => setSettings(prev => ({
-                      ...prev,
-                      azureSpeech: { ...prev.azureSpeech, azureVoice: value }
-                    }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {voiceOptions.map((voice) => (
-                        <SelectItem key={voice.value} value={voice.value}>
-                          {voice.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <div className="mt-6">
-            <CustomVocabularySettings />
-          </div>
+            <TabsContent value="stt" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Azure Speech Service設定</CardTitle>
+                      <CardDescription>
+                        音声認識の設定を行います
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getTestIcon(testResults.azureSpeech)}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={testAzureSpeech}
+                        disabled={testResults.azureSpeech === "testing"}
+                        className="gap-1"
+                      >
+                        <TestTube className="h-4 w-4" />
+                        接続テスト
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="subscription-key">サブスクリプションキー *</Label>
+                      <Input
+                        id="subscription-key"
+                        type="password"
+                        value={settings.azureSpeech.azureSubscriptionKey}
+                        onChange={(e) => setSettings(prev => ({
+                          ...prev,
+                          azureSpeech: { ...prev.azureSpeech, azureSubscriptionKey: e.target.value }
+                        }))}
+                        placeholder="Azure Speech Serviceのサブスクリプションキー"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="region">リージョン *</Label>
+                      <Select
+                        value={settings.azureSpeech.azureRegion}
+                        onValueChange={(value) => setSettings(prev => ({
+                          ...prev,
+                          azureSpeech: { ...prev.azureSpeech, azureRegion: value }
+                        }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {azureRegions.map((region) => (
+                            <SelectItem key={region.value} value={region.value}>
+                              {region.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="language">音声認識言語</Label>
+                      <Select
+                        value={settings.azureSpeech.azureLanguage}
+                        onValueChange={(value) => setSettings(prev => ({
+                          ...prev,
+                          azureSpeech: { ...prev.azureSpeech, azureLanguage: value }
+                        }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ja-JP">日本語 (ja-JP)</SelectItem>
+                          <SelectItem value="en-US">英語 (en-US)</SelectItem>
+                          <SelectItem value="zh-CN">中国語 (zh-CN)</SelectItem>
+                          <SelectItem value="ko-KR">韓国語 (ko-KR)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="voice">音声合成ボイス</Label>
+                      <Select
+                        value={settings.azureSpeech.azureVoice}
+                        onValueChange={(value) => setSettings(prev => ({
+                          ...prev,
+                          azureSpeech: { ...prev.azureSpeech, azureVoice: value }
+                        }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {voiceOptions.map((voice) => (
+                            <SelectItem key={voice.value} value={voice.value}>
+                              {voice.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <CustomVocabularySettings />
+            </TabsContent>
+
+            <TabsContent value="tts">
+              <ResponseSettings
+                settings={settings.response}
+                onSettingsChange={(responseSettings) => setSettings(prev => ({
+                  ...prev,
+                  response: responseSettings
+                }))}
+              />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
-
-        <TabsContent value="asterisk">
-          <AsteriskSettings
-            settings={settings.asterisk}
-            onSettingsChange={(asteriskSettings) => setSettings(prev => ({
-              ...prev,
-              asterisk: asteriskSettings
-            }))}
-          />
-        </TabsContent>
-
 
         <TabsContent value="dify">
           <DifySettings
@@ -365,14 +348,12 @@ export default function SettingsManagement() {
           />
         </TabsContent>
 
-        <TabsContent value="response">
-          <ResponseSettings
-            settings={settings.response}
-            onSettingsChange={(responseSettings) => setSettings(prev => ({
-              ...prev,
-              response: responseSettings
-            }))}
-          />
+        <TabsContent value="external">
+          <ExternalApiSettings />
+        </TabsContent>
+
+        <TabsContent value="security">
+          <SecuritySettings />
         </TabsContent>
 
         <TabsContent value="numbers">

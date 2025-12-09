@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { BarChart, Phone, History, Settings, Users, Fan as Fax, Bell, PhoneCall, Menu, User, LogOut, ChevronDown } from 'lucide-react';
-import { Database } from 'lucide-react';
+import { BarChart, Phone, History, Settings, Users, Printer, Bell, PhoneCall, Menu, User, LogOut, ChevronDown, BotMessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,13 +17,13 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { name: 'ダッシュボード', href: '/', icon: BarChart },
+  { name: 'AIナレッジ検索', href: '/knowledge', icon: BotMessageSquare },
   { name: '通話モニター', href: '/calls/monitor', icon: Phone },
-  { name: 'AI架電', href: '/calls/ai', icon: PhoneCall },
   { name: '通話履歴', href: '/calls/history', icon: History },
-  { name: 'FAX管理', href: '/fax', icon: Fax },
+  { name: 'FAX履歴', href: '/fax', icon: Printer },
+  { name: 'AI架電', href: '/calls/ai', icon: PhoneCall },
   { name: '顧客管理', href: '/users', icon: Users },
   { name: 'スタッフ管理', href: '/staff', icon: Users },
-  { name: 'ナレッジデータベース', href: '/knowledge', icon: Database },
   { name: '通知設定', href: '/notifications', icon: Bell },
   { name: '設定', href: '/settings', icon: Settings },
 ];
@@ -44,8 +43,11 @@ export default function SideNav() {
       "border-r bg-card flex flex-col h-screen transition-all duration-300",
       collapsed ? "w-16" : "w-64"
     )}>
-      <div className="p-4 flex items-center justify-between">
-        {!collapsed ? (
+      <div className={cn(
+        "p-4 flex items-center",
+        collapsed ? "justify-center" : "justify-between"
+      )}>
+        {!collapsed && (
           <div className="flex items-center gap-2">
             <Image
               src="/logo.png"
@@ -55,20 +57,11 @@ export default function SideNav() {
               className="object-contain"
             />
           </div>
-        ) : (
-          <Image
-            src="/logo.png"
-            alt="Voice AI System"
-            width={32}
-            height={32}
-            className="mx-auto object-contain"
-          />
         )}
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={() => setCollapsed(!collapsed)}
-          className={collapsed ? "mx-auto" : ""}
         >
           <Menu className="h-5 w-5" />
         </Button>

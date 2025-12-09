@@ -18,6 +18,7 @@ import {
   Volume2, 
   MessageSquare,
   Phone,
+  PhoneOff,
   Users,
   Headphones
 } from "lucide-react";
@@ -29,6 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Mic } from "lucide-react";
 
 interface ResponseSettingsProps {
   settings: {
@@ -50,9 +53,14 @@ interface ResponseSettingsProps {
       audioFile: string | null;
       audioFileName: string | null;
     };
+    endCall: {
+      useAudio: boolean;
+      message: string;
+      audioFile: string | null;
+      audioFileName: string | null;
+    };
     voice: string;
     speechRate: number;
-    volume: number;
   };
   onSettingsChange: (settings: any) => void;
 }
@@ -69,7 +77,7 @@ const VOICE_OPTIONS = [
 export default function ResponseSettings({ settings, onSettingsChange }: ResponseSettingsProps) {
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
 
-  const handleMessageChange = (type: 'incomingCall' | 'humanCallout' | 'humanHandover', message: string) => {
+  const handleMessageChange = (type: 'incomingCall' | 'humanCallout' | 'humanHandover' | 'endCall', message: string) => {
     onSettingsChange({
       ...settings,
       [type]: {
@@ -79,7 +87,7 @@ export default function ResponseSettings({ settings, onSettingsChange }: Respons
     });
   };
 
-  const handleAudioToggle = (type: 'incomingCall' | 'humanCallout' | 'humanHandover', useAudio: boolean) => {
+  const handleAudioToggle = (type: 'incomingCall' | 'humanCallout' | 'humanHandover' | 'endCall', useAudio: boolean) => {
     onSettingsChange({
       ...settings,
       [type]: {
@@ -89,7 +97,7 @@ export default function ResponseSettings({ settings, onSettingsChange }: Respons
     });
   };
 
-  const handleAudioUpload = (type: 'incomingCall' | 'humanCallout' | 'humanHandover', event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAudioUpload = (type: 'incomingCall' | 'humanCallout' | 'humanHandover' | 'endCall', event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -121,7 +129,7 @@ export default function ResponseSettings({ settings, onSettingsChange }: Respons
     event.target.value = '';
   };
 
-  const handleAudioDelete = (type: 'incomingCall' | 'humanCallout' | 'humanHandover') => {
+  const handleAudioDelete = (type: 'incomingCall' | 'humanCallout' | 'humanHandover' | 'endCall') => {
     // Revoke object URL to prevent memory leaks
     if (settings[type].audioFile) {
       URL.revokeObjectURL(settings[type].audioFile as string);
@@ -139,7 +147,7 @@ export default function ResponseSettings({ settings, onSettingsChange }: Respons
     toast.success("音声ファイルを削除しました");
   };
 
-  const handleAudioPlay = (type: 'incomingCall' | 'humanCallout' | 'humanHandover') => {
+  const handleAudioPlay = (type: 'incomingCall' | 'humanCallout' | 'humanHandover' | 'endCall') => {
     const audioFile = settings[type].audioFile;
     if (!audioFile) return;
 
@@ -158,7 +166,7 @@ export default function ResponseSettings({ settings, onSettingsChange }: Respons
     }
   };
 
-  const handleTestMessage = (type: 'incomingCall' | 'humanCallout' | 'humanHandover') => {
+  const handleTestMessage = (type: 'incomingCall' | 'humanCallout' | 'humanHandover' | 'endCall') => {
     const config = settings[type];
     if (config.useAudio && config.audioFile) {
       handleAudioPlay(type);
@@ -173,126 +181,115 @@ export default function ResponseSettings({ settings, onSettingsChange }: Respons
     }
   };
 
-  const ResponseSection = ({ 
+  const ResponseContent = ({ 
     type, 
-    title, 
-    description, 
-    icon: Icon,
+    description,
     placeholder 
   }: { 
-    type: 'incomingCall' | 'humanCallout' | 'humanHandover';
-    title: string;
+    type: 'incomingCall' | 'humanCallout' | 'humanHandover' | 'endCall';
     description: string;
-    icon: any;
     placeholder: string;
   }) => {
     const config = settings[type];
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Icon className="h-5 w-5" />
-            {title}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>音声ファイルを使用</Label>
-              <p className="text-sm text-muted-foreground">
-                オフの場合はテキストメッセージを音声合成で再生
-              </p>
-            </div>
-            <Switch
-              checked={config.useAudio}
-              onCheckedChange={(checked) => handleAudioToggle(type, checked)}
-            />
+      <div className="space-y-4 pt-4">
+        <p className="text-sm text-muted-foreground">{description}</p>
+        
+        <div className="flex items-center justify-between p-4 border rounded-lg">
+          <div className="space-y-0.5">
+            <Label>音声ファイルを使用</Label>
+            <p className="text-sm text-muted-foreground">
+              オフの場合はテキストメッセージを音声合成で再生
+            </p>
           </div>
+          <Switch
+            checked={config.useAudio}
+            onCheckedChange={(checked) => handleAudioToggle(type, checked)}
+          />
+        </div>
 
-          {config.useAudio ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>音声ファイル</Label>
-                {config.audioFile ? (
-                  <div className="flex items-center gap-2 p-3 border rounded-lg">
-                    <Volume2 className="h-4 w-4 text-muted-foreground" />
-                    <span className="flex-1 text-sm">{config.audioFileName}</span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleAudioPlay(type)}
-                      className="h-8 w-8"
-                    >
-                      {playingAudio === type ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleAudioDelete(type)}
-                      className="h-8 w-8"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={(e) => handleAudioUpload(type, e)}
-                      style={{ display: 'none' }}
-                      id={`audio-upload-${type}`}
-                    />
-                    <Button
-                      variant="outline"
-                      onClick={() => document.getElementById(`audio-upload-${type}`)?.click()}
-                      className="gap-2"
-                    >
-                      <Upload className="h-4 w-4" />
-                      音声ファイルをアップロード
-                    </Button>
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  対応形式: MP3, WAV, M4A (最大10MB)
-                </p>
-              </div>
-            </div>
-          ) : (
+        {config.useAudio ? (
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label>メッセージテキスト</Label>
-              <Textarea
-                value={config.message}
-                onChange={(e) => handleMessageChange(type, e.target.value)}
-                placeholder={placeholder}
-                rows={3}
-                className="resize-none"
-              />
+              <Label>音声ファイル</Label>
+              {config.audioFile ? (
+                <div className="flex items-center gap-2 p-3 border rounded-lg">
+                  <Volume2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="flex-1 text-sm">{config.audioFileName}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleAudioPlay(type)}
+                    className="h-8 w-8"
+                  >
+                    {playingAudio === type ? (
+                      <Pause className="h-4 w-4" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleAudioDelete(type)}
+                    className="h-8 w-8"
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => handleAudioUpload(type, e)}
+                    style={{ display: 'none' }}
+                    id={`audio-upload-${type}`}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => document.getElementById(`audio-upload-${type}`)?.click()}
+                    className="gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    音声ファイルをアップロード
+                  </Button>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
-                設定された音声で自動的に読み上げられます
+                対応形式: MP3, WAV, M4A (最大10MB)
               </p>
             </div>
-          )}
-
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              onClick={() => handleTestMessage(type)}
-              className="gap-2"
-              disabled={(!config.useAudio && !config.message.trim()) || (config.useAudio && !config.audioFile)}
-            >
-              <Play className="h-4 w-4" />
-              テスト再生
-            </Button>
           </div>
-        </CardContent>
-      </Card>
+        ) : (
+          <div className="space-y-2">
+            <Label>メッセージテキスト</Label>
+            <Textarea
+              value={config.message}
+              onChange={(e) => handleMessageChange(type, e.target.value)}
+              placeholder={placeholder}
+              rows={3}
+              className="resize-none"
+            />
+            <p className="text-xs text-muted-foreground">
+              設定された音声で自動的に読み上げられます
+            </p>
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            onClick={() => handleTestMessage(type)}
+            className="gap-2"
+            disabled={(!config.useAudio && !config.message.trim()) || (config.useAudio && !config.audioFile)}
+          >
+            <Play className="h-4 w-4" />
+            テスト再生
+          </Button>
+        </div>
+      </div>
     );
   };
 
@@ -307,43 +304,26 @@ export default function ResponseSettings({ settings, onSettingsChange }: Respons
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>音声</Label>
-              <Select
-                value={settings.voice}
-                onValueChange={(value) => onSettingsChange({
-                  ...settings,
-                  voice: value
-                })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {VOICE_OPTIONS.map((voice) => (
-                    <SelectItem key={voice.value} value={voice.value}>
-                      {voice.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>音量: {settings.volume}%</Label>
-              <Input
-                type="range"
-                min="0"
-                max="100"
-                value={settings.volume}
-                onChange={(e) => onSettingsChange({
-                  ...settings,
-                  volume: parseInt(e.target.value)
-                })}
-                className="w-full"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>音声</Label>
+            <Select
+              value={settings.voice}
+              onValueChange={(value) => onSettingsChange({
+                ...settings,
+                voice: value
+              })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VOICE_OPTIONS.map((voice) => (
+                  <SelectItem key={voice.value} value={voice.value}>
+                    {voice.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
@@ -371,72 +351,73 @@ export default function ResponseSettings({ settings, onSettingsChange }: Respons
 
       <Separator />
 
-      {/* 応答メッセージ設定 */}
-      <div className="space-y-6">
-        <ResponseSection
-          type="incomingCall"
-          title="着信時メッセージ"
-          description="着信があった際に最初に流すメッセージです"
-          icon={Phone}
-          placeholder="お電話ありがとうございます。AIアシスタントが対応いたします。ご用件をお聞かせください。"
-        />
-
-        <ResponseSection
-          type="humanCallout"
-          title="人間呼び出し時メッセージ"
-          description="人間のオペレーターを呼び出している間に流すメッセージです"
-          icon={Users}
-          placeholder="担当者におつなぎしております。少々お待ちください。"
-        />
-
-        <ResponseSection
-          type="humanHandover"
-          title="人間応対時メッセージ"
-          description="通話モニターに割り込む際に流すメッセージです"
-          icon={MessageSquare}
-          placeholder="担当者に代わります。引き続きよろしくお願いいたします。"
-        />
-      </div>
-
-      {/* 使用方法ガイド */}
+      {/* AI通話時のトーキー設定 */}
       <Card>
         <CardHeader>
-          <CardTitle>使用方法ガイド</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Mic className="h-5 w-5" />
+            AI通話時のトーキー設定
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            通話中の各場面で再生するメッセージを設定します
+          </p>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <div>
-            <strong className="text-foreground">着信時メッセージ:</strong>
-            <ul className="mt-1 ml-4 space-y-1 list-disc">
-              <li>顧客からの着信があった際に最初に再生されます</li>
-              <li>AIアシスタントの挨拶や案内に使用します</li>
-            </ul>
-          </div>
-          
-          <div>
-            <strong className="text-foreground">人間呼び出し時メッセージ:</strong>
-            <ul className="mt-1 ml-4 space-y-1 list-disc">
-              <li>AIが人間のオペレーターを呼び出している間に再生されます</li>
-              <li>保留音の代わりに案内メッセージを流すことができます</li>
-            </ul>
-          </div>
+        <CardContent>
+          <Tabs defaultValue="incomingCall">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="incomingCall" className="gap-1 text-xs sm:text-sm">
+                <Phone className="h-4 w-4 hidden sm:block" />
+                着信時
+              </TabsTrigger>
+              <TabsTrigger value="humanCallout" className="gap-1 text-xs sm:text-sm">
+                <Users className="h-4 w-4 hidden sm:block" />
+                呼び出し時
+              </TabsTrigger>
+              <TabsTrigger value="humanHandover" className="gap-1 text-xs sm:text-sm">
+                <MessageSquare className="h-4 w-4 hidden sm:block" />
+                応対時
+              </TabsTrigger>
+              <TabsTrigger value="endCall" className="gap-1 text-xs sm:text-sm">
+                <PhoneOff className="h-4 w-4 hidden sm:block" />
+                終話時
+              </TabsTrigger>
+            </TabsList>
 
-          <div>
-            <strong className="text-foreground">人間応対時メッセージ:</strong>
-            <ul className="mt-1 ml-4 space-y-1 list-disc">
-              <li>通話モニターでオペレーターが通話に参加する際に再生されます</li>
-              <li>AIから人間への引き継ぎを円滑にします</li>
-            </ul>
-          </div>
+            <TabsContent value="incomingCall">
+              <ResponseContent
+                type="incomingCall"
+                description="着信があった際に最初に流すメッセージです"
+                placeholder="お電話ありがとうございます。AIアシスタントが対応いたします。ご用件をお聞かせください。"
+              />
+            </TabsContent>
 
-          <div>
-            <strong className="text-foreground">音声ファイル vs テキスト:</strong>
-            <ul className="mt-1 ml-4 space-y-1 list-disc">
-              <li>音声ファイル: 事前に録音した高品質な音声を使用</li>
-              <li>テキスト: 設定された音声で自動的に読み上げ</li>
-            </ul>
-          </div>
+            <TabsContent value="humanCallout">
+              <ResponseContent
+                type="humanCallout"
+                description="人間のオペレーターを呼び出している間に流すメッセージです"
+                placeholder="担当者におつなぎしております。少々お待ちください。"
+              />
+            </TabsContent>
+
+            <TabsContent value="humanHandover">
+              <ResponseContent
+                type="humanHandover"
+                description="通話モニターに割り込む際に流すメッセージです"
+                placeholder="担当者に代わります。引き続きよろしくお願いいたします。"
+              />
+            </TabsContent>
+
+            <TabsContent value="endCall">
+              <ResponseContent
+                type="endCall"
+                description="通話を終了する際に流すメッセージです"
+                placeholder="お電話ありがとうございました。またのご連絡をお待ちしております。"
+              />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
+
     </div>
   );
 }

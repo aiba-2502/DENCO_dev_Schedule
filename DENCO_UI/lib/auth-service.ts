@@ -14,9 +14,25 @@ const PYTHON_API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000
 
 /**
  * 認証バイパスが有効かどうか（デバッグ用）
+ * - 開発モード（npm run dev）では自動的に認証をスキップ
+ * - 本番ビルドでは NEXT_PUBLIC_DISABLE_AUTH=true が必要
+ * 
+ * 【バックエンド開発者へ】
+ * 本番環境では必ず NEXT_PUBLIC_DISABLE_AUTH を設定しないか、'false' に設定してください。
+ * 開発時のみ認証がスキップされます。
  */
 export function isAuthDisabled(): boolean {
-  return process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+  // 明示的に無効化されている場合
+  if (process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true') {
+    return true;
+  }
+  
+  // 開発モード（npm run dev）では認証をスキップ
+  if (process.env.NODE_ENV === 'development') {
+    return true;
+  }
+  
+  return false;
 }
 
 /**

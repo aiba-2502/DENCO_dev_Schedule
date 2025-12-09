@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Edit, Trash, Search, Users } from "lucide-react";
+import { Plus, Edit, Trash, Search } from "lucide-react";
 
 interface Department {
   id: string;
@@ -103,7 +103,6 @@ interface StaffManagementProps {
 
 export default function StaffManagement({ availableDepartments = [] }: StaffManagementProps) {
   const [staff, setStaff] = useState<Staff[]>(initialStaff);
-  const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -119,18 +118,10 @@ export default function StaffManagement({ availableDepartments = [] }: StaffMana
   });
 
   const filteredStaff = staff.filter(member => {
-    const fullName = `${member.lastName} ${member.firstName}`;
-    const matchesSearch = 
-      searchTerm === "" ||
-      fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.phoneNumber.includes(searchTerm);
-
     const matchesDepartment = departmentFilter === "all" || member.department === departmentFilter;
     const matchesStatus = statusFilter === "all" || member.status === statusFilter;
 
-    return matchesSearch && matchesDepartment && matchesStatus;
+    return matchesDepartment && matchesStatus;
   });
 
   const handleAddStaff = () => {
@@ -320,100 +311,92 @@ export default function StaffManagement({ availableDepartments = [] }: StaffMana
   );
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            スタッフ管理
-          </CardTitle>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-1">
-                <Plus className="h-4 w-4" />
-                スタッフ追加
+    <div className="p-6 space-y-6 h-screen flex flex-col">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">スタッフ管理</h1>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-1">
+              <Plus className="h-4 w-4" />
+              スタッフ追加
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>新規スタッフ登録</DialogTitle>
+              <DialogDescription>
+                新しいスタッフを登録します
+              </DialogDescription>
+            </DialogHeader>
+            <StaffForm />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                キャンセル
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>新規スタッフ登録</DialogTitle>
-                <DialogDescription>
-                  新しいスタッフを登録します
-                </DialogDescription>
-              </DialogHeader>
-              <StaffForm />
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  キャンセル
-                </Button>
-                <Button onClick={handleAddStaff}>追加</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              <Button onClick={handleAddStaff}>追加</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>フィルター</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {/* フィルター */}
-            <div className="grid gap-4 md:grid-cols-4">
-              <div className="flex items-center space-x-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="名前、部署、メール、電話番号で検索..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full"
-                />
-              </div>
+          <div className="flex gap-4 items-center">
+            <Select
+              value={departmentFilter}
+              onValueChange={setDepartmentFilter}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="部署でフィルター" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">すべての部署</SelectItem>
+                {availableDepartments.map(dept => (
+                  <SelectItem key={dept.id} value={dept.name}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-              <Select
-                value={departmentFilter}
-                onValueChange={setDepartmentFilter}
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={statusFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("all")}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="部署でフィルター" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべての部署</SelectItem>
-                  {availableDepartments.map(dept => (
-                    <SelectItem key={dept.id} value={dept.name}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant={statusFilter === "all" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setStatusFilter("all")}
-                >
-                  すべて
-                </Button>
-                <Button
-                  variant={statusFilter === "active" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setStatusFilter("active")}
-                >
-                  有効
-                </Button>
-                <Button
-                  variant={statusFilter === "inactive" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setStatusFilter("inactive")}
-                >
-                  無効
-                </Button>
-              </div>
-
-              <div className="text-sm text-muted-foreground flex items-center">
-                {filteredStaff.length}件 / 全{staff.length}件
-              </div>
+                すべて
+              </Button>
+              <Button
+                variant={statusFilter === "active" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("active")}
+              >
+                有効
+              </Button>
+              <Button
+                variant={statusFilter === "inactive" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("inactive")}
+              >
+                無効
+              </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
 
-            {/* テーブル */}
+      <Card className="flex-1 flex flex-col min-h-0">
+        <CardHeader>
+          <CardTitle>スタッフ一覧</CardTitle>
+        </CardHeader>
+        <CardContent className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
                   <TableHead>スタッフ名</TableHead>
                   <TableHead>部署</TableHead>
@@ -480,8 +463,8 @@ export default function StaffManagement({ availableDepartments = [] }: StaffMana
                       <div className="flex flex-col items-center">
                         <Search className="h-10 w-10 text-muted-foreground mb-2" />
                         <p className="text-muted-foreground">
-                          {searchTerm || departmentFilter !== "all" || statusFilter !== "all"
-                            ? "検索条件に一致するスタッフがいません"
+                          {departmentFilter !== "all" || statusFilter !== "all"
+                            ? "フィルター条件に一致するスタッフがいません"
                             : "登録されたスタッフがいません"}
                         </p>
                       </div>
@@ -490,6 +473,12 @@ export default function StaffManagement({ availableDepartments = [] }: StaffMana
                 )}
               </TableBody>
             </Table>
+          </div>
+
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-muted-foreground">
+              {filteredStaff.length}件 / 全{staff.length}件
+            </div>
           </div>
         </CardContent>
       </Card>

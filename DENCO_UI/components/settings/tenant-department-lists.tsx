@@ -3,7 +3,6 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -31,7 +30,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Search, Edit, Trash, Plus, Building } from "lucide-react";
+import { Search, Edit, Trash, Building, Phone, Printer, Plus } from "lucide-react";
 import type { TenantEntry, Department } from "./tenant-types";
 import { getTenantName } from "./tenant-types";
 
@@ -41,20 +40,8 @@ import { getTenantName } from "./tenant-types";
 interface TenantListProps {
   /** テナントリスト */
   tenants: TenantEntry[];
-  /** 検索条件 */
-  searchTerm: string;
-  /** 検索条件変更ハンドラー */
-  onSearchChange: (value: string) => void;
-  /** ステータスフィルター */
-  statusFilter: string;
-  /** ステータスフィルター変更ハンドラー */
-  onStatusFilterChange: (value: string) => void;
   /** 編集ボタンクリックハンドラー */
   onEditClick: (tenant: TenantEntry) => void;
-  /** 削除ハンドラー */
-  onDeleteClick: (id: string) => void;
-  /** 追加ボタンクリックハンドラー */
-  onAddClick: () => void;
 }
 
 /**
@@ -62,98 +49,63 @@ interface TenantListProps {
  */
 export function TenantList({
   tenants,
-  searchTerm,
-  onSearchChange,
-  statusFilter,
-  onStatusFilterChange,
   onEditClick,
-  onDeleteClick,
-  onAddClick,
 }: TenantListProps) {
-  // フィルタリング
-  const filteredTenants = tenants.filter(tenant => {
-    const matchesSearch =
-      searchTerm === "" ||
-      tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (tenant.description && tenant.description.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const matchesStatus = statusFilter === "all" || tenant.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Building className="h-5 w-5" />
-          テナント管理
+          テナント一覧
         </CardTitle>
-        <Button className="gap-1" onClick={onAddClick}>
-          <Plus className="h-4 w-4" />
-          テナント追加
-        </Button>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {/* フィルター */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="flex items-center space-x-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="テナント名、説明で検索..."
-                value={searchTerm}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full"
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Button
-                variant={statusFilter === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => onStatusFilterChange("all")}
-              >
-                すべて
-              </Button>
-              <Button
-                variant={statusFilter === "active" ? "default" : "outline"}
-                size="sm"
-                onClick={() => onStatusFilterChange("active")}
-              >
-                有効
-              </Button>
-              <Button
-                variant={statusFilter === "inactive" ? "default" : "outline"}
-                size="sm"
-                onClick={() => onStatusFilterChange("inactive")}
-              >
-                無効
-              </Button>
-            </div>
-
-            <div className="text-sm text-muted-foreground flex items-center">
-              {filteredTenants.length}件 / 全{tenants.length}件
-            </div>
-          </div>
-
-          {/* テーブル */}
-          <Table>
+        <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>テナント名</TableHead>
                 <TableHead>説明</TableHead>
+                <TableHead>電話番号</TableHead>
+                <TableHead>FAX番号</TableHead>
                 <TableHead>状態</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTenants.length > 0 ? (
-                filteredTenants.map((tenant) => (
+              {tenants.length > 0 ? (
+                tenants.map((tenant) => (
                   <TableRow key={tenant.id}>
                     <TableCell className="font-medium">{tenant.name}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {tenant.description || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {tenant.phoneNumbers && tenant.phoneNumbers.length > 0 ? (
+                        <div className="space-y-1">
+                          {tenant.phoneNumbers.map((phone, idx) => (
+                            <div key={idx} className="flex items-center gap-1 text-sm">
+                              <Phone className="h-3 w-3 text-muted-foreground" />
+                              <span className="font-mono text-xs">{phone}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {tenant.faxNumbers && tenant.faxNumbers.length > 0 ? (
+                        <div className="space-y-1">
+                          {tenant.faxNumbers.map((fax, idx) => (
+                            <div key={idx} className="flex items-center gap-1 text-sm">
+                              <Printer className="h-3 w-3 text-muted-foreground" />
+                              <span className="font-mono text-xs">{fax}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={tenant.status === "active" ? "default" : "secondary"}>
@@ -161,50 +113,23 @@ export function TenantList({
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => onEditClick(tenant)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="icon">
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>テナントの削除</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                「{tenant.name}」を削除してもよろしいですか？この操作は取り消せません。
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => onDeleteClick(tenant.id)}
-                              >
-                                削除
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => onEditClick(tenant)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-6">
+                  <TableCell colSpan={6} className="text-center py-6">
                     <div className="flex flex-col items-center">
-                      <Search className="h-10 w-10 text-muted-foreground mb-2" />
+                      <Building className="h-10 w-10 text-muted-foreground mb-2" />
                       <p className="text-muted-foreground">
-                        {searchTerm || statusFilter !== "all"
-                          ? "検索条件に一致するテナントがありません"
-                          : "登録されたテナントがありません"}
+                        登録されたテナントがありません
                       </p>
                     </div>
                   </TableCell>
@@ -212,7 +137,6 @@ export function TenantList({
               )}
             </TableBody>
           </Table>
-        </div>
       </CardContent>
     </Card>
   );
@@ -226,24 +150,16 @@ interface DepartmentListProps {
   departments: Department[];
   /** テナントリスト */
   tenants: TenantEntry[];
-  /** 検索条件 */
-  searchTerm: string;
-  /** 検索条件変更ハンドラー */
-  onSearchChange: (value: string) => void;
   /** テナントフィルター */
   tenantFilter: string;
   /** テナントフィルター変更ハンドラー */
   onTenantFilterChange: (value: string) => void;
-  /** ステータスフィルター */
-  statusFilter: string;
-  /** ステータスフィルター変更ハンドラー */
-  onStatusFilterChange: (value: string) => void;
+  /** 追加ボタンクリックハンドラー */
+  onAddClick: () => void;
   /** 編集ボタンクリックハンドラー */
   onEditClick: (department: Department) => void;
   /** 削除ハンドラー */
   onDeleteClick: (id: string) => void;
-  /** 追加ボタンクリックハンドラー */
-  onAddClick: () => void;
 }
 
 /**
@@ -252,27 +168,15 @@ interface DepartmentListProps {
 export function DepartmentList({
   departments,
   tenants,
-  searchTerm,
-  onSearchChange,
   tenantFilter,
   onTenantFilterChange,
-  statusFilter,
-  onStatusFilterChange,
+  onAddClick,
   onEditClick,
   onDeleteClick,
-  onAddClick,
 }: DepartmentListProps) {
   // フィルタリング
   const filteredDepartments = departments.filter(dept => {
-    const matchesSearch =
-      searchTerm === "" ||
-      dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (dept.description && dept.description.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const matchesTenant = tenantFilter === "all" || dept.tenantId === tenantFilter;
-    const matchesStatus = statusFilter === "all" || dept.status === statusFilter;
-
-    return matchesSearch && matchesTenant && matchesStatus;
+    return tenantFilter === "all" || dept.tenantId === tenantFilter;
   });
 
   return (
@@ -289,24 +193,14 @@ export function DepartmentList({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {/* 部署フィルター */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="flex items-center space-x-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="部署名、説明で検索..."
-                value={searchTerm}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full"
-              />
-            </div>
-
+          {/* テナント選択 */}
+          <div className="max-w-xs">
             <Select
               value={tenantFilter}
               onValueChange={onTenantFilterChange}
             >
               <SelectTrigger>
-                <SelectValue placeholder="テナントでフィルター" />
+                <SelectValue placeholder="テナントを選択" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">すべてのテナント</SelectItem>
@@ -317,34 +211,6 @@ export function DepartmentList({
                 ))}
               </SelectContent>
             </Select>
-
-            <div className="flex items-center space-x-2">
-              <Button
-                variant={statusFilter === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => onStatusFilterChange("all")}
-              >
-                すべて
-              </Button>
-              <Button
-                variant={statusFilter === "active" ? "default" : "outline"}
-                size="sm"
-                onClick={() => onStatusFilterChange("active")}
-              >
-                有効
-              </Button>
-              <Button
-                variant={statusFilter === "inactive" ? "default" : "outline"}
-                size="sm"
-                onClick={() => onStatusFilterChange("inactive")}
-              >
-                無効
-              </Button>
-            </div>
-
-            <div className="text-sm text-muted-foreground flex items-center">
-              {filteredDepartments.length}件 / 全{departments.length}件
-            </div>
           </div>
 
           {/* 部署テーブル */}
@@ -353,7 +219,8 @@ export function DepartmentList({
               <TableRow>
                 <TableHead>部署名</TableHead>
                 <TableHead>テナント</TableHead>
-                <TableHead>説明</TableHead>
+                <TableHead>電話番号</TableHead>
+                <TableHead>FAX番号</TableHead>
                 <TableHead>状態</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
@@ -364,8 +231,25 @@ export function DepartmentList({
                   <TableRow key={department.id}>
                     <TableCell className="font-medium">{department.name}</TableCell>
                     <TableCell>{getTenantName(department.tenantId, tenants)}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {department.description || "-"}
+                    <TableCell>
+                      {department.phoneNumber ? (
+                        <div className="flex items-center gap-1 text-sm">
+                          <Phone className="h-3 w-3 text-muted-foreground" />
+                          <span className="font-mono text-xs">{department.phoneNumber}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {department.faxNumber ? (
+                        <div className="flex items-center gap-1 text-sm">
+                          <Printer className="h-3 w-3 text-muted-foreground" />
+                          <span className="font-mono text-xs">{department.faxNumber}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={department.status === "active" ? "default" : "secondary"}>
@@ -410,7 +294,7 @@ export function DepartmentList({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6">
+                  <TableCell colSpan={6} className="text-center py-6">
                     <div className="flex flex-col items-center">
                       <Search className="h-10 w-10 text-muted-foreground mb-2" />
                       <p className="text-muted-foreground">
